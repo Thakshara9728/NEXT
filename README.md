@@ -9,7 +9,8 @@ A modern, production-ready web application built with Next.js 15 and Claude API 
 - **🧠 Extended Thinking**: Enable deeper reasoning with configurable thinking budgets (1K-32K tokens)
 - **📡 Real-time Streaming**: Server-Sent Events (SSE) for incremental response delivery
 - **💭 Thinking Visualization**: Collapsible thinking blocks showing Claude's reasoning process
-- **🌐 Web Search Integration**: Enhance responses with current web information
+- **🌐 Native Web Search**: Claude's built-in web search with automatic source citations
+- **📚 Source Citations**: Clickable references to web sources with excerpts
 - **⚡ Prompt Caching**: Reduce costs up to 90% and improve latency
 - **🔐 Signature Verification**: Automatic thinking block signature handling
 
@@ -64,16 +65,9 @@ Create a `.env.local` file in the root directory:
 ```env
 # Required: Your Claude API key
 ANTHROPIC_API_KEY=your_api_key_here
-
-# Optional: Web Search API key
-# Get Tavily API key at https://tavily.com/ (recommended)
-# Or Brave Search API at https://brave.com/search/api/
-WEB_SEARCH_API_KEY=your_search_api_key_here
-
-# Optional: Web Search Provider (default: tavily)
-# Options: 'tavily' or 'brave'
-WEB_SEARCH_PROVIDER=tavily
 ```
+
+**Note**: Web search is built into Claude's API - no separate API key needed!
 
 ### 3. Run Development Server
 
@@ -135,9 +129,11 @@ Enable in settings for Claude to show its reasoning process:
 ### Web Search
 
 Enable to include current web information:
-- Automatically searches based on your query
-- Adds context to Claude's responses
-- Requires web search API configuration
+- Claude automatically searches when needed
+- Sources are cited with clickable links
+- Shows excerpts from cited pages
+- No additional API key required
+- Must be enabled in Anthropic Console
 
 ### Model Selection
 
@@ -154,10 +150,12 @@ Access via the sidebar (right side on desktop, menu button on mobile):
 - **Model**: Choose Claude Sonnet 3.7 or 4.5
 - **Extended Thinking**: Toggle deeper reasoning
 - **Thinking Budget**: Configure tokens allocated for reasoning (shown when extended thinking is enabled)
-- **Web Search**: Enable web context
+- **Web Search**: Enable Claude's native web search with citations
 - **Prompt Caching**: Reduce costs (recommended)
 - **Temperature**: Control creativity (0-2)
 - **Max Tokens**: Set response length
+
+**Note**: Web search max uses defaults to 5 searches per request and can be configured in settings.
 
 ## 🌐 API Integration
 
@@ -213,24 +211,35 @@ Automatically caches system prompts to:
 
 ### Web Search Integration
 
-The app includes fully implemented web search with support for:
-
-**Supported Providers:**
-- **[Tavily API](https://tavily.com/)** (recommended) - AI-optimized search results
-- **[Brave Search API](https://brave.com/search/api/)** - Privacy-focused search
-
-**Setup:**
-1. Get an API key from your chosen provider
-2. Add to `.env.local`: `WEB_SEARCH_API_KEY=your_key_here`
-3. Optionally set provider: `WEB_SEARCH_PROVIDER=tavily` (default) or `brave`
-4. Enable in settings panel when chatting
+The app uses **Claude's native web search tool** (no separate API key required):
 
 **Features:**
-- Automatic query-based search
-- Returns top 5 relevant results
-- Formatted context for Claude
-- Error handling with user-friendly messages
-- Relevance scoring (Tavily only)
+- Built directly into Claude API
+- Automatic citation of sources
+- Real-time web content access
+- Claude decides when to search based on context
+- Up to 5 searches per request (configurable)
+- Costs: **$10 per 1,000 searches** + standard token costs
+
+**Setup:**
+1. Enable in Console: Your organization admin must enable web search in [Anthropic Console](https://console.anthropic.com/settings/privacy)
+2. Toggle "Web Search" in the app's settings panel
+3. Claude automatically searches when needed
+
+**How it works:**
+- Claude determines when web search is needed
+- Searches are executed automatically
+- Sources are cited inline with responses
+- Citations show:
+  - Source title and URL
+  - Relevant excerpt from the page
+  - Clickable links to original sources
+
+**Supported Models:**
+- Claude Sonnet 4.5 ✅
+- Claude Sonnet 3.7 ✅
+- Claude Haiku 4.5 ✅
+- Claude Opus 4.1 ✅
 
 ## 🚀 Deployment
 
@@ -380,6 +389,7 @@ For issues or questions, please open an issue on GitHub.
 
 - [Claude API Documentation](https://docs.anthropic.com/)
 - [Extended Thinking Guide](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking)
+- [Web Search Tool](https://docs.anthropic.com/en/docs/build-with-claude/web-search)
 - [Streaming Messages](https://docs.anthropic.com/en/docs/build-with-claude/streaming)
 - [Prompt Caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching)
 - [Next.js Documentation](https://nextjs.org/docs)

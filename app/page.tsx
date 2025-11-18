@@ -48,6 +48,7 @@ export default function Home() {
       thinking: '',
       timestamp: new Date(),
       model: settings.model,
+      citations: [],
     };
 
     addMessage(assistantMessage);
@@ -83,6 +84,7 @@ export default function Home() {
 
       let currentContent = '';
       let currentThinking = '';
+      let currentCitations: any[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -109,10 +111,16 @@ export default function Home() {
 
               if (parsed.type === 'thinking') {
                 currentThinking = parsed.content || '';
-                updateLastMessage(currentContent, currentThinking);
+                updateLastMessage(currentContent, currentThinking, currentCitations);
               } else if (parsed.type === 'content') {
                 currentContent = parsed.content || '';
-                updateLastMessage(currentContent, currentThinking);
+                updateLastMessage(currentContent, currentThinking, currentCitations);
+              } else if (parsed.type === 'citation') {
+                currentContent = parsed.content || '';
+                if (parsed.citations) {
+                  currentCitations = [...currentCitations, ...parsed.citations];
+                }
+                updateLastMessage(currentContent, currentThinking, currentCitations);
               }
             } catch (e) {
               // Skip invalid JSON

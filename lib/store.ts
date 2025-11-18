@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import { Message, ChatSettings } from '@/types';
+import { Message, ChatSettings, Citation } from '@/types';
 
 interface ChatStore {
   messages: Message[];
   settings: ChatSettings;
   isStreaming: boolean;
   addMessage: (message: Message) => void;
-  updateLastMessage: (content: string, thinking?: string) => void;
+  updateLastMessage: (content: string, thinking?: string, citations?: Citation[]) => void;
   clearMessages: () => void;
   updateSettings: (settings: Partial<ChatSettings>) => void;
   setStreaming: (streaming: boolean) => void;
@@ -27,7 +27,7 @@ export const useChatStore = create<ChatStore>((set) => ({
     set((state) => ({
       messages: [...state.messages, message],
     })),
-  updateLastMessage: (content, thinking) =>
+  updateLastMessage: (content, thinking, citations) =>
     set((state) => {
       const messages = [...state.messages];
       const lastMessage = messages[messages.length - 1];
@@ -35,6 +35,9 @@ export const useChatStore = create<ChatStore>((set) => ({
         lastMessage.content = content;
         if (thinking) {
           lastMessage.thinking = thinking;
+        }
+        if (citations) {
+          lastMessage.citations = citations;
         }
       }
       return { messages };

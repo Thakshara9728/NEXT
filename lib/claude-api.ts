@@ -24,17 +24,17 @@ export class ClaudeAPI {
    * Stream a response from Claude with support for:
    * - Prompt caching
    * - Extended thinking with signature handling
-   * - Web search context
+   * - Native web search tool with citations
    * - Proper event handling for all streaming types
    */
   async *streamMessage(
     messages: Message[],
-    settings: ChatSettings,
-    webSearchResults?: string
+    settings: ChatSettings
   ): AsyncGenerator<{
-    type: 'content' | 'thinking' | 'signature' | 'done' | 'error';
+    type: 'content' | 'thinking' | 'signature' | 'done' | 'error' | 'citation';
     content?: string;
     error?: string;
+    citations?: any[];
   }> {
     try {
       const modelId = MODEL_MAP[settings.model];
@@ -43,21 +43,21 @@ export class ClaudeAPI {
       const systemMessages: Anthropic.Messages.MessageCreateParams['system'] = [];
 
       // Base system prompt (cached for efficiency)
-      let baseSystemPrompt = `You are Claude, a helpful AI assistant specialized in generating YouTube scripts and assisting with content creation.
+      const baseSystemPrompt = `You are Claude, a helpful AI assistant specialized in generating YouTube scripts and assisting with content creation.
 
-You have access to current information and can provide detailed, creative, and engaging responses.
+You have access to real-time web information through the web search tool when needed.
 
 When generating YouTube scripts:
 - Create engaging hooks and introductions
 - Structure content with clear sections
 - Include timestamps and suggestions for visuals
 - Make content suitable for the target audience
-- Add calls-to-action where appropriate`;
+- Add calls-to-action where appropriate
 
-      // Add web search results to system context if available
-      if (settings.webSearch && webSearchResults) {
-        baseSystemPrompt += `\n\nCurrent web search results for context:\n${webSearchResults}`;
-      }
+When using web search:
+- Always cite your sources
+- Provide URLs for factual claims
+- Indicate when information is from web search results`;
 
       // Use prompt caching for the base system prompt
       if (settings.usePromptCaching) {
@@ -108,11 +108,23 @@ When generating YouTube scripts:
         };
       }
 
+      // Add native web search tool if enabled
+      if (settings.webSearch) {
+        requestParams.tools = [
+          {
+            type: 'web_search_20250305' as any,
+            name: 'web_search',
+            max_uses: settings.webSearchMaxUses || 5,
+          },
+        ];
+      }
+
       const stream = await this.client.messages.create(requestParams);
 
       let currentThinking = '';
       let currentContent = '';
       let currentSignature = '';
+      let currentCitations: any[] = [];
 
       for await (const event of stream) {
         // Handle different event types
@@ -121,6 +133,7 @@ When generating YouTube scripts:
           currentThinking = '';
           currentContent = '';
           currentSignature = '';
+          currentCitations = [];
         } else if (event.type === 'content_block_start') {
           // New content block starting
           const block = event.content_block;
@@ -128,6 +141,11 @@ When generating YouTube scripts:
             currentThinking = '';
           } else if (block.type === 'text') {
             currentContent = '';
+            // Reset citations for new text block
+            const textBlock = block as any;
+            if (textBlock.citations) {
+              currentCitations = textBlock.citations;
+            }
           }
         } else if (event.type === 'content_block_delta') {
           // Content delta (incremental updates)
@@ -137,8 +155,20 @@ When generating YouTube scripts:
             currentThinking += delta.thinking;
             yield { type: 'thinking', content: currentThinking };
           } else if (delta.type === 'text_delta') {
-            currentContent += delta.text;
-            yield { type: 'content', content: currentContent };
+            const textDelta = delta as any;
+            currentContent += textDelta.text;
+
+            // Check for citations in the delta
+            if (textDelta.citations) {
+              currentCitations = [...currentCitations, ...textDelta.citations];
+              yield {
+                type: 'citation',
+                content: currentContent,
+                citations: textDelta.citations
+              };
+            } else {
+              yield { type: 'content', content: currentContent };
+            }
           } else if (delta.type === 'signature_delta') {
             // Signature for thinking verification (appears at end of thinking block)
             currentSignature += delta.signature;
@@ -179,18 +209,15 @@ When generating YouTube scripts:
    */
   async sendMessage(
     messages: Message[],
-    settings: ChatSettings,
-    webSearchResults?: string
-  ): Promise<{ content: string; thinking?: string }> {
+    settings: ChatSettings
+  ): Promise<{ content: string; thinking?: string; citations?: any[] }> {
     const modelId = MODEL_MAP[settings.model];
 
     const systemMessages: Anthropic.Messages.MessageCreateParams['system'] = [];
 
-    let baseSystemPrompt = `You are Claude, a helpful AI assistant specialized in generating YouTube scripts and assisting with content creation.`;
+    const baseSystemPrompt = `You are Claude, a helpful AI assistant specialized in generating YouTube scripts and assisting with content creation.
 
-    if (settings.webSearch && webSearchResults) {
-      baseSystemPrompt += `\n\nCurrent web search results:\n${webSearchResults}`;
-    }
+You have access to real-time web information through the web search tool when needed.`;
 
     if (settings.usePromptCaching) {
       systemMessages.push({
@@ -224,23 +251,43 @@ When generating YouTube scripts:
     if (settings.extendedThinking) {
       requestParams.thinking = {
         type: 'enabled',
-        budget_tokens: 2000,
+        budget_tokens: settings.thinkingBudget || 2000,
       };
+    }
+
+    // Add native web search tool if enabled
+    if (settings.webSearch) {
+      requestParams.tools = [
+        {
+          type: 'web_search_20250305' as any,
+          name: 'web_search',
+          max_uses: settings.webSearchMaxUses || 5,
+        },
+      ];
     }
 
     const response = await this.client.messages.create(requestParams);
 
     let content = '';
     let thinking = '';
+    let citations: any[] = [];
 
     for (const block of response.content) {
       if (block.type === 'text') {
-        content += block.text;
+        const textBlock = block as any;
+        content += textBlock.text;
+        if (textBlock.citations) {
+          citations = [...citations, ...textBlock.citations];
+        }
       } else if (block.type === 'thinking') {
         thinking += block.thinking;
       }
     }
 
-    return { content, thinking: thinking || undefined };
+    return {
+      content,
+      thinking: thinking || undefined,
+      citations: citations.length > 0 ? citations : undefined
+    };
   }
 }

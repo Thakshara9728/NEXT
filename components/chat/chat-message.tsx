@@ -5,7 +5,7 @@ import { Message } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Bot, User, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bot, User, Brain, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface ChatMessageProps {
@@ -88,6 +88,48 @@ export function ChatMessage({ message }: ChatMessageProps) {
             )}
           </CardContent>
         </Card>
+
+        {/* Citations (web search sources) */}
+        {!isUser && message.citations && message.citations.length > 0 && (
+          <Card className="bg-muted/20 border-dashed">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Sources ({message.citations.length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {message.citations.map((citation, idx) => (
+                  <a
+                    key={idx}
+                    href={citation.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-2 rounded-md bg-background/50 hover:bg-background/80 transition-colors border border-border/50"
+                  >
+                    <div className="flex items-start gap-2">
+                      <ExternalLink className="w-3 h-3 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">
+                          {citation.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {citation.url}
+                        </p>
+                        {citation.cited_text && (
+                          <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">
+                            "{citation.cited_text}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Metadata */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
