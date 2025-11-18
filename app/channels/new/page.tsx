@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowLeft, Save, Youtube } from 'lucide-react';
 import Link from 'next/link';
+import { DEFAULT_SYSTEM_PROMPT, DEFAULT_STARTING_PROMPT, DEFAULT_CONTINUE_PROMPT } from '@/lib/prompt-templates';
 
 export default function NewChannelPage() {
   const router = useRouter();
@@ -16,9 +17,9 @@ export default function NewChannelPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    systemPrompt: '',
-    startingPrompt: '',
-    continuePrompt: '',
+    systemPrompt: DEFAULT_SYSTEM_PROMPT,
+    startingPrompt: DEFAULT_STARTING_PROMPT,
+    continuePrompt: DEFAULT_CONTINUE_PROMPT,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -102,16 +103,15 @@ export default function NewChannelPage() {
               <CardHeader>
                 <CardTitle>System Prompt</CardTitle>
                 <CardDescription>
-                  Define the AI personality, tone, and style for this channel
+                  Define the AI personality, tone, and style for this channel. This sets the overall behavior.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea
                   id="systemPrompt"
-                  placeholder="You are a professional YouTube script writer..."
                   value={formData.systemPrompt}
                   onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
-                  className="min-h-[150px]"
+                  className="min-h-[180px] font-mono text-sm"
                 />
               </CardContent>
             </Card>
@@ -120,16 +120,17 @@ export default function NewChannelPage() {
               <CardHeader>
                 <CardTitle>Starting Prompt</CardTitle>
                 <CardDescription>
-                  First section prompt. Use {'{topic}'} as placeholder.
+                  First section prompt. The word "Outlier" is the only part you should change - replace it with your topic.
+                  <br />
+                  Use {'{topic}'} in the prompt and it will be replaced with the topic entered during generation.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea
                   id="startingPrompt"
-                  placeholder="Write a YouTube script about {topic}..."
                   value={formData.startingPrompt}
                   onChange={(e) => setFormData({ ...formData, startingPrompt: e.target.value })}
-                  className="min-h-[120px]"
+                  className="min-h-[200px] font-mono text-sm"
                 />
               </CardContent>
             </Card>
@@ -138,16 +139,15 @@ export default function NewChannelPage() {
               <CardHeader>
                 <CardTitle>Continue Prompt</CardTitle>
                 <CardDescription>
-                  Prompt for subsequent sections (auto-continue)
+                  This prompt is used for sections 2, 3, 4, etc. to automatically continue the story.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea
                   id="continuePrompt"
-                  placeholder="Continue the next section..."
                   value={formData.continuePrompt}
                   onChange={(e) => setFormData({ ...formData, continuePrompt: e.target.value })}
-                  className="min-h-[120px]"
+                  className="min-h-[180px] font-mono text-sm"
                 />
               </CardContent>
             </Card>

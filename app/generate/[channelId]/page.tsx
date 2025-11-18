@@ -413,18 +413,7 @@ export default function GeneratePage() {
                       </CardTitle>
                     </CardHeader>
                     {section.content && (
-                      <CardContent className="space-y-4">
-                        {section.thinking && formData.extendedThinking && (
-                          <details className="border-l-2 border-primary/30 pl-4">
-                            <summary className="cursor-pointer text-sm text-muted-foreground flex items-center gap-2">
-                              <Brain className="w-4 h-4" />
-                              Extended Thinking
-                            </summary>
-                            <div className="mt-2 text-xs prose prose-sm dark:prose-invert max-w-none">
-                              <ReactMarkdown>{section.thinking}</ReactMarkdown>
-                            </div>
-                          </details>
-                        )}
+                      <CardContent>
                         <div className="prose dark:prose-invert max-w-none">
                           <ReactMarkdown>{section.content}</ReactMarkdown>
                         </div>
