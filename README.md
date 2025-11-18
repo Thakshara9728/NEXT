@@ -51,9 +51,11 @@ This application follows 2025 best practices:
 ### 1. Installation
 
 ```bash
-# Install dependencies
-npm install
+# Install dependencies (use --legacy-peer-deps for React 19 RC compatibility)
+npm install --legacy-peer-deps
 ```
+
+**Note**: We use `--legacy-peer-deps` because Next.js 15.0.3 requires React 19 RC, which some dependencies haven't explicitly declared support for yet. This is safe and expected when using RC versions.
 
 ### 2. Environment Setup
 
@@ -63,8 +65,14 @@ Create a `.env.local` file in the root directory:
 # Required: Your Claude API key
 ANTHROPIC_API_KEY=your_api_key_here
 
-# Optional: Web Search API key (Tavily, Brave, etc.)
+# Optional: Web Search API key
+# Get Tavily API key at https://tavily.com/ (recommended)
+# Or Brave Search API at https://brave.com/search/api/
 WEB_SEARCH_API_KEY=your_search_api_key_here
+
+# Optional: Web Search Provider (default: tavily)
+# Options: 'tavily' or 'brave'
+WEB_SEARCH_PROVIDER=tavily
 ```
 
 ### 3. Run Development Server
@@ -205,11 +213,24 @@ Automatically caches system prompts to:
 
 ### Web Search Integration
 
-The app supports various web search APIs (implement in `lib/web-search.ts`):
-- [Tavily API](https://tavily.com/)
-- [Brave Search API](https://brave.com/search/api/)
-- Google Custom Search
-- Bing Search API
+The app includes fully implemented web search with support for:
+
+**Supported Providers:**
+- **[Tavily API](https://tavily.com/)** (recommended) - AI-optimized search results
+- **[Brave Search API](https://brave.com/search/api/)** - Privacy-focused search
+
+**Setup:**
+1. Get an API key from your chosen provider
+2. Add to `.env.local`: `WEB_SEARCH_API_KEY=your_key_here`
+3. Optionally set provider: `WEB_SEARCH_PROVIDER=tavily` (default) or `brave`
+4. Enable in settings panel when chatting
+
+**Features:**
+- Automatic query-based search
+- Returns top 5 relevant results
+- Formatted context for Claude
+- Error handling with user-friendly messages
+- Relevance scoring (Tavily only)
 
 ## 🚀 Deployment
 

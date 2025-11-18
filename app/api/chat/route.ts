@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { ClaudeAPI } from '@/lib/claude-api';
-import { performWebSearch, formatSearchResults } from '@/lib/web-search';
+import { performWebSearch, formatSearchResults, getSearchProvider } from '@/lib/web-search';
 import { ChatSettings, Message } from '@/types';
 
 export const runtime = 'nodejs';
@@ -27,7 +27,12 @@ export async function POST(req: NextRequest) {
       const lastUserMessage = messages[messages.length - 1];
       if (lastUserMessage.role === 'user') {
         const searchApiKey = process.env.WEB_SEARCH_API_KEY;
-        const results = await performWebSearch(lastUserMessage.content, searchApiKey);
+        const searchProvider = getSearchProvider();
+        const results = await performWebSearch(
+          lastUserMessage.content,
+          searchApiKey,
+          searchProvider
+        );
         webSearchResults = formatSearchResults(results);
       }
     }
