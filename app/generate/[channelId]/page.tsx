@@ -44,6 +44,9 @@ export default function GeneratePage() {
   }>>([]);
 
   const [currentSection, setCurrentSection] = useState(1);
+  const [waitingMessage, setWaitingMessage] = useState<string | null>(null);
+  const [rateLimitInfo, setRateLimitInfo] = useState<any>(null);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchChannel();
@@ -74,6 +77,9 @@ export default function GeneratePage() {
     setGenerating(true);
     setSections([]);
     setCurrentSection(1);
+    setWaitingMessage(null);
+    setRateLimitError(null);
+    setRateLimitInfo(null);
 
     // Initialize sections
     const initialSections = Array.from({ length: formData.maxSections }, (_, i) => ({
@@ -127,8 +133,11 @@ export default function GeneratePage() {
             if (nextLine && nextLine.startsWith('data: ')) {
               const data = JSON.parse(nextLine.slice(6));
 
-              if (eventType === 'section_start') {
+              if (eventType === 'rate_limit_info') {
+                setRateLimitInfo(data);
+              } else if (eventType === 'section_start') {
                 setCurrentSection(data.sectionNumber);
+                setWaitingMessage(null);
                 setSections(prev =>
                   prev.map(s =>
                     s.sectionNumber === data.sectionNumber
@@ -163,12 +172,22 @@ export default function GeneratePage() {
                       : s
                   )
                 );
+              } else if (eventType === 'waiting') {
+                setWaitingMessage(data.message);
               } else if (eventType === 'generation_complete') {
                 if (data.scriptId) {
                   setScriptId(data.scriptId);
                 }
+                setWaitingMessage(null);
+              } else if (eventType === 'rate_limit_error') {
+                setRateLimitError(data.error);
+                alert(`Rate Limit Error: ${data.error}\n\nDetails: ${data.details}`);
               } else if (eventType === 'error') {
-                alert(`Error: ${data.error}`);
+                const errorMsg = data.error || 'Unknown error';
+                if (errorMsg.includes('rate_limit') || errorMsg.includes('429')) {
+                  setRateLimitError('Rate limit exceeded. Please wait and try again.');
+                }
+                alert(`Error: ${errorMsg}`);
               }
             }
           }
@@ -334,6 +353,31 @@ export default function GeneratePage() {
                     </>
                   )}
                 </Button>
+
+                {/* Rate Limit Info */}
+                {rateLimitInfo && (
+                  <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+                    <p className="font-semibold">Rate Limits ({rateLimitInfo.model}):</p>
+                    <p>• {rateLimitInfo.limits.requestsPerMinute} requests/min</p>
+                    <p>• {rateLimitInfo.limits.tokensPerMinute.toLocaleString()} tokens/min</p>
+                    <p>• {rateLimitInfo.delayBetweenSections}s delay between sections</p>
+                  </div>
+                )}
+
+                {/* Waiting Message */}
+                {waitingMessage && (
+                  <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-md border border-amber-200 dark:border-amber-900">
+                    <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
+                    {waitingMessage}
+                  </div>
+                )}
+
+                {/* Rate Limit Error */}
+                {rateLimitError && (
+                  <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-3 rounded-md border border-red-200 dark:border-red-900">
+                    {rateLimitError}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

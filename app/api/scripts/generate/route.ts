@@ -6,6 +6,51 @@ import { ChatSettings } from '@/types';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// Rate limit constants
+const RATE_LIMITS = {
+  'claude-sonnet-3-7': {
+    requestsPerMinute: 50,
+    tokensPerMinute: 40000,
+    tokensPerDay: 1000000,
+  },
+  'claude-sonnet-4-5': {
+    requestsPerMinute: 50,
+    tokensPerMinute: 40000,
+    tokensPerDay: 1000000,
+  },
+};
+
+// Helper: Wait between sections to avoid rate limits
+const waitBetweenSections = (seconds: number) =>
+  new Promise(resolve => setTimeout(resolve, seconds * 1000));
+
+// Helper: Retry with exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 2000
+): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isRateLimit = error.message?.includes('rate_limit_error') ||
+                          error.status === 429 ||
+                          error.message?.includes('429');
+
+      if (!isRateLimit || attempt === maxRetries) {
+        throw error;
+      }
+
+      // Exponential backoff: 2s, 4s, 8s
+      const delay = baseDelay * Math.pow(2, attempt);
+      console.log(`Rate limit hit, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 // POST /api/scripts/generate
 export async function POST(req: NextRequest) {
   try {
@@ -70,6 +115,15 @@ export async function POST(req: NextRequest) {
             );
           };
 
+          // Send rate limit info
+          const model = settings.model || 'claude-sonnet-4-5';
+          const rateLimit = RATE_LIMITS[model as keyof typeof RATE_LIMITS];
+          sendEvent('rate_limit_info', {
+            model,
+            limits: rateLimit,
+            delayBetweenSections: 3, // seconds
+          });
+
           // Generate sections
           while (currentSectionNumber <= maxSections) {
             sendEvent('section_start', {
@@ -107,31 +161,48 @@ export async function POST(req: NextRequest) {
               model: settings.model || 'claude-sonnet-4-5',
             };
 
-            // Stream the section generation
-            for await (const chunk of claudeAPI.streamMessage(messages, generationSettings, channel.systemPrompt)) {
-              if (chunk.type === 'thinking') {
-                currentThinking = chunk.content || '';
-                sendEvent('thinking', {
-                  sectionNumber: currentSectionNumber,
-                  thinking: currentThinking,
-                });
-              } else if (chunk.type === 'content') {
-                currentContent = chunk.content || '';
-                sendEvent('content', {
-                  sectionNumber: currentSectionNumber,
-                  content: currentContent,
-                });
-              } else if (chunk.type === 'citation') {
-                if (chunk.citations) {
-                  currentCitations = [...currentCitations, ...chunk.citations];
+            // Stream the section generation with retry logic
+            try {
+              await retryWithBackoff(async () => {
+                for await (const chunk of claudeAPI.streamMessage(messages, generationSettings, channel.systemPrompt)) {
+                  if (chunk.type === 'thinking') {
+                    currentThinking = chunk.content || '';
+                    sendEvent('thinking', {
+                      sectionNumber: currentSectionNumber,
+                      thinking: currentThinking,
+                    });
+                  } else if (chunk.type === 'content') {
+                    currentContent = chunk.content || '';
+                    sendEvent('content', {
+                      sectionNumber: currentSectionNumber,
+                      content: currentContent,
+                    });
+                  } else if (chunk.type === 'citation') {
+                    if (chunk.citations) {
+                      currentCitations = [...currentCitations, ...chunk.citations];
+                    }
+                    sendEvent('citation', {
+                      sectionNumber: currentSectionNumber,
+                      citations: chunk.citations,
+                    });
+                  } else if (chunk.type === 'error') {
+                    throw new Error(chunk.error || 'Generation error');
+                  }
                 }
-                sendEvent('citation', {
+              });
+            } catch (error: any) {
+              // Check if it's a rate limit error
+              const isRateLimit = error.message?.includes('rate_limit_error') ||
+                                  error.message?.includes('429');
+
+              if (isRateLimit) {
+                sendEvent('rate_limit_error', {
                   sectionNumber: currentSectionNumber,
-                  citations: chunk.citations,
+                  error: 'Rate limit exceeded. Please wait and try again, or reduce max tokens/sections.',
+                  details: error.message,
                 });
-              } else if (chunk.type === 'error') {
-                throw new Error(chunk.error || 'Generation error');
               }
+              throw error;
             }
 
             // Save section to database
@@ -162,6 +233,15 @@ export async function POST(req: NextRequest) {
             });
 
             currentSectionNumber++;
+
+            // Wait 3 seconds between sections to avoid rate limits
+            if (currentSectionNumber <= maxSections) {
+              sendEvent('waiting', {
+                message: 'Waiting 3 seconds to avoid rate limits...',
+                nextSection: currentSectionNumber,
+              });
+              await waitBetweenSections(3);
+            }
           }
 
           // Update script status
