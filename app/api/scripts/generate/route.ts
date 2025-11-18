@@ -6,6 +6,20 @@ import { ChatSettings } from '@/types';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// Extract artifact content from Claude response
+function extractArtifactContent(content: string): string {
+  // Match content between <antArtifact> tags
+  const artifactRegex = /<antArtifact[^>]*>([\s\S]*?)<\/antArtifact>/;
+  const match = content.match(artifactRegex);
+
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+
+  // If no artifact tags, return the content as-is
+  return content;
+}
+
 // Rate limit constants (Tier 1)
 const RATE_LIMITS = {
   'claude-sonnet-3-7': {
@@ -171,13 +185,13 @@ export async function POST(req: NextRequest) {
               await retryWithBackoff(async () => {
                 for await (const chunk of claudeAPI.streamMessage(messages, generationSettings, channel.systemPrompt)) {
                   if (chunk.type === 'thinking') {
+                    // Store thinking but don't send to frontend
                     currentThinking = chunk.content || '';
-                    sendEvent('thinking', {
-                      sectionNumber: currentSectionNumber,
-                      thinking: currentThinking,
-                    });
                   } else if (chunk.type === 'content') {
-                    currentContent = chunk.content || '';
+                    // Extract only artifact content
+                    const rawContent = chunk.content || '';
+                    currentContent = extractArtifactContent(rawContent);
+
                     sendEvent('content', {
                       sectionNumber: currentSectionNumber,
                       content: currentContent,
@@ -186,10 +200,7 @@ export async function POST(req: NextRequest) {
                     if (chunk.citations) {
                       currentCitations = [...currentCitations, ...chunk.citations];
                     }
-                    sendEvent('citation', {
-                      sectionNumber: currentSectionNumber,
-                      citations: chunk.citations,
-                    });
+                    // Don't send citations to frontend
                   } else if (chunk.type === 'error') {
                     throw new Error(chunk.error || 'Generation error');
                   }

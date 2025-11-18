@@ -41,7 +41,6 @@ export default function GeneratePage() {
   const [sections, setSections] = useState<Array<{
     sectionNumber: number;
     content: string;
-    thinking?: string;
     status: 'pending' | 'generating' | 'completed';
   }>>([]);
 
@@ -87,7 +86,6 @@ export default function GeneratePage() {
     const initialSections = Array.from({ length: formData.maxSections }, (_, i) => ({
       sectionNumber: i + 1,
       content: '',
-      thinking: '',
       status: 'pending' as const,
     }));
     setSections(initialSections);
@@ -170,14 +168,6 @@ export default function GeneratePage() {
               if (!scriptId && data.scriptId) {
                 setScriptId(data.scriptId);
               }
-            } else if (eventType === 'thinking') {
-              setSections(prev =>
-                prev.map(s =>
-                  s.sectionNumber === data.sectionNumber
-                    ? { ...s, thinking: data.thinking }
-                    : s
-                )
-              );
             } else if (eventType === 'content') {
               setSections(prev =>
                 prev.map(s =>
@@ -262,44 +252,44 @@ export default function GeneratePage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
+        <div className="container mx-auto px-4 py-3 flex items-center gap-3">
           <Link href="/">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
+            <Button variant="ghost" size="sm" className="h-8 px-2">
+              <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
               Back
             </Button>
           </Link>
-          <div className="flex items-center gap-3 flex-1">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-              <Youtube className="w-6 h-6 text-primary-foreground" />
+          <div className="flex items-center gap-2.5 flex-1">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+              <Youtube className="w-4 h-4 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{channel.name}</h1>
-              <p className="text-sm text-muted-foreground">Generate YouTube Script</p>
+              <h1 className="text-base font-semibold leading-none">{channel.name}</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Generate Script</p>
             </div>
           </div>
           {scriptId && allSectionsCompleted && (
-            <Button onClick={handleDownload}>
-              <Download className="w-4 h-4 mr-2" />
-              Download
+            <Button onClick={handleDownload} size="sm" className="h-8">
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              Download All
             </Button>
           )}
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <main className="container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Settings Panel */}
           <div className="lg:col-span-1">
             <Card>
-              <CardHeader>
-                <CardTitle>Configuration</CardTitle>
-                <CardDescription>Script generation settings</CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Configuration</CardTitle>
+                <CardDescription className="text-xs">Script generation settings</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div>
-                  <Label htmlFor="title">Script Title *</Label>
-                  <Input
+                  <Label className="text-xs font-medium" htmlFor="title">Script Title *</Label>
+                  <Input className="h-9 text-sm" className="h-9 text-sm"
                     id="title"
                     placeholder="Enter script title..."
                     value={formData.title}
@@ -309,8 +299,8 @@ export default function GeneratePage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="topic">Topic (Optional)</Label>
-                  <Input
+                  <Label className="text-xs font-medium" htmlFor="topic">Topic (Optional)</Label>
+                  <Input className="h-9 text-sm" className="h-9 text-sm"
                     id="topic"
                     placeholder="Specific topic or theme..."
                     value={formData.topic}
@@ -320,15 +310,15 @@ export default function GeneratePage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="transcript">Video Transcript (Optional)</Label>
+                  <Label className="text-xs font-medium" htmlFor="transcript">Video Transcript (Optional)</Label>
                   <Textarea
                     id="transcript"
                     placeholder="Paste video transcript here... (will be included with first section for factual accuracy)"
                     value={formData.transcript}
                     onChange={(e) => setFormData({ ...formData, transcript: e.target.value })}
                     disabled={generating}
-                    rows={6}
-                    className="resize-y"
+                    rows={4}
+                    className="resize-y text-sm"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Transcript will be included with the first section
@@ -336,7 +326,7 @@ export default function GeneratePage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="model">Model</Label>
+                  <Label className="text-xs font-medium" htmlFor="model">Model</Label>
                   <Select
                     value={formData.model}
                     onValueChange={(value) => setFormData({ ...formData, model: value as any })}
@@ -353,7 +343,7 @@ export default function GeneratePage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="maxSections">Max Sections: {formData.maxSections}</Label>
+                  <Label className="text-xs font-medium" htmlFor="maxSections">Max Sections: {formData.maxSections}</Label>
                   <input
                     type="range"
                     id="maxSections"
@@ -368,7 +358,7 @@ export default function GeneratePage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="extendedThinking">Extended Thinking</Label>
+                  <Label className="text-xs font-medium" htmlFor="extendedThinking">Extended Thinking</Label>
                   <Switch
                     id="extendedThinking"
                     checked={formData.extendedThinking}
@@ -380,7 +370,7 @@ export default function GeneratePage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="webSearch">Web Search</Label>
+                  <Label className="text-xs font-medium" htmlFor="webSearch">Web Search</Label>
                   <Switch
                     id="webSearch"
                     checked={formData.webSearch}
@@ -394,16 +384,16 @@ export default function GeneratePage() {
                 <Button
                   onClick={handleGenerate}
                   disabled={generating || !formData.title}
-                  className="w-full"
+                  className="w-full h-9 text-sm"
                 >
                   {generating ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating Section {currentSection}/{formData.maxSections}...
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                      Section {currentSection}/{formData.maxSections}...
                     </>
                   ) : (
                     <>
-                      <Play className="w-4 h-4 mr-2" />
+                      <Play className="w-3.5 h-3.5 mr-1.5" />
                       Generate Script
                     </>
                   )}
@@ -456,20 +446,20 @@ export default function GeneratePage() {
                     key={section.sectionNumber}
                     className={section.status === 'generating' ? 'border-primary' : ''}
                   >
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center justify-between text-sm font-medium">
                         <span>Section {section.sectionNumber}</span>
                         {section.status === 'generating' && (
                           <Loader2 className="w-4 h-4 animate-spin text-primary" />
                         )}
                         {section.status === 'completed' && (
                           <div className="flex items-center gap-2">
-                            <span className="text-sm text-green-600"> Complete</span>
+                            <span className="text-xs text-green-600 font-normal">✓ Complete</span>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleDownloadSection(section.sectionNumber, section.content)}
-                              className="h-8"
+                              className="h-7 text-xs"
                             >
                               <Download className="w-3 h-3 mr-1" />
                               Download
@@ -479,9 +469,9 @@ export default function GeneratePage() {
                       </CardTitle>
                     </CardHeader>
                     {section.content && (
-                      <CardContent>
-                        <div className="prose dark:prose-invert max-w-none">
-                          <ReactMarkdown>{section.content}</ReactMarkdown>
+                      <CardContent className="pt-4">
+                        <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+                          {section.content}
                         </div>
                       </CardContent>
                     )}
