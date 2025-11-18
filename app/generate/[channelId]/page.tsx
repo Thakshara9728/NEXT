@@ -1,0 +1,415 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { ArrowLeft, Play, Download, Youtube, Loader2, Brain, FileText } from 'lucide-react';
+import Link from 'next/link';
+import { Channel, Script, ScriptSection } from '@/types/database';
+import ReactMarkdown from 'react-markdown';
+
+export default function GeneratePage() {
+  const params = useParams();
+  const router = useRouter();
+  const channelId = params.channelId as string;
+
+  const [channel, setChannel] = useState<Channel | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [scriptId, setScriptId] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState({
+    title: '',
+    topic: '',
+    model: 'claude-sonnet-4-5',
+    maxTokens: 4096,
+    temperature: 1.0,
+    extendedThinking: false,
+    webSearch: false,
+    usePromptCaching: true,
+    thinkingBudget: undefined as number | undefined,
+    maxSections: 5,
+  });
+
+  const [sections, setSections] = useState<Array<{
+    sectionNumber: number;
+    content: string;
+    thinking?: string;
+    status: 'pending' | 'generating' | 'completed';
+  }>>([]);
+
+  const [currentSection, setCurrentSection] = useState(1);
+
+  useEffect(() => {
+    fetchChannel();
+  }, [channelId]);
+
+  const fetchChannel = async () => {
+    try {
+      const response = await fetch(`/api/channels/${channelId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setChannel(data);
+      } else {
+        router.push('/');
+      }
+    } catch (error) {
+      console.error('Error fetching channel:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!formData.title) {
+      alert('Please enter a title');
+      return;
+    }
+
+    setGenerating(true);
+    setSections([]);
+    setCurrentSection(1);
+
+    // Initialize sections
+    const initialSections = Array.from({ length: formData.maxSections }, (_, i) => ({
+      sectionNumber: i + 1,
+      content: '',
+      thinking: '',
+      status: 'pending' as const,
+    }));
+    setSections(initialSections);
+
+    try {
+      const response = await fetch('/api/scripts/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelId,
+          title: formData.title,
+          topic: formData.topic,
+          maxSections: formData.maxSections,
+          settings: {
+            model: formData.model,
+            maxTokens: formData.maxTokens,
+            temperature: formData.temperature,
+            extendedThinking: formData.extendedThinking,
+            webSearch: formData.webSearch,
+            usePromptCaching: formData.usePromptCaching,
+            thinkingBudget: formData.thinkingBudget,
+          },
+        }),
+      });
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            const eventType = line.slice(7);
+            const nextLine = lines[lines.indexOf(line) + 1];
+
+            if (nextLine && nextLine.startsWith('data: ')) {
+              const data = JSON.parse(nextLine.slice(6));
+
+              if (eventType === 'section_start') {
+                setCurrentSection(data.sectionNumber);
+                setSections(prev =>
+                  prev.map(s =>
+                    s.sectionNumber === data.sectionNumber
+                      ? { ...s, status: 'generating' }
+                      : s
+                  )
+                );
+                if (!scriptId && data.scriptId) {
+                  setScriptId(data.scriptId);
+                }
+              } else if (eventType === 'thinking') {
+                setSections(prev =>
+                  prev.map(s =>
+                    s.sectionNumber === data.sectionNumber
+                      ? { ...s, thinking: data.thinking }
+                      : s
+                  )
+                );
+              } else if (eventType === 'content') {
+                setSections(prev =>
+                  prev.map(s =>
+                    s.sectionNumber === data.sectionNumber
+                      ? { ...s, content: data.content }
+                      : s
+                  )
+                );
+              } else if (eventType === 'section_complete') {
+                setSections(prev =>
+                  prev.map(s =>
+                    s.sectionNumber === data.sectionNumber
+                      ? { ...s, status: 'completed' }
+                      : s
+                  )
+                );
+              } else if (eventType === 'generation_complete') {
+                if (data.scriptId) {
+                  setScriptId(data.scriptId);
+                }
+              } else if (eventType === 'error') {
+                alert(`Error: ${data.error}`);
+              }
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Generation error:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!scriptId) return;
+    window.open(`/api/scripts/${scriptId}/download`, '_blank');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!channel) {
+    return null;
+  }
+
+  const allSectionsCompleted = sections.length > 0 && sections.every(s => s.status === 'completed');
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
+          <Link href="/">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+              <Youtube className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">{channel.name}</h1>
+              <p className="text-sm text-muted-foreground">Generate YouTube Script</p>
+            </div>
+          </div>
+          {scriptId && allSectionsCompleted && (
+            <Button onClick={handleDownload}>
+              <Download className="w-4 h-4 mr-2" />
+              Download
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Settings Panel */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configuration</CardTitle>
+                <CardDescription>Script generation settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Script Title *</Label>
+                  <Input
+                    id="title"
+                    placeholder="Enter script title..."
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    disabled={generating}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="topic">Topic (Optional)</Label>
+                  <Input
+                    id="topic"
+                    placeholder="Specific topic or theme..."
+                    value={formData.topic}
+                    onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                    disabled={generating}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="model">Model</Label>
+                  <Select
+                    value={formData.model}
+                    onValueChange={(value) => setFormData({ ...formData, model: value as any })}
+                    disabled={generating}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="claude-sonnet-3-7">Sonnet 3.7</SelectItem>
+                      <SelectItem value="claude-sonnet-4-5">Sonnet 4.5</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="maxSections">Max Sections: {formData.maxSections}</Label>
+                  <input
+                    type="range"
+                    id="maxSections"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={formData.maxSections}
+                    onChange={(e) => setFormData({ ...formData, maxSections: parseInt(e.target.value) })}
+                    disabled={generating}
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="extendedThinking">Extended Thinking</Label>
+                  <Switch
+                    id="extendedThinking"
+                    checked={formData.extendedThinking}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, extendedThinking: checked })
+                    }
+                    disabled={generating}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="webSearch">Web Search</Label>
+                  <Switch
+                    id="webSearch"
+                    checked={formData.webSearch}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, webSearch: checked })
+                    }
+                    disabled={generating}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleGenerate}
+                  disabled={generating || !formData.title}
+                  className="w-full"
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating Section {currentSection}/{formData.maxSections}...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      Generate Script
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Script Output */}
+          <div className="lg:col-span-2">
+            {sections.length === 0 ? (
+              <Card className="py-12">
+                <CardContent className="text-center">
+                  <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-xl font-semibold mb-2">Ready to Generate</h3>
+                  <p className="text-muted-foreground">
+                    Configure settings and click Generate Script to start
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {sections.map((section) => (
+                  <Card
+                    key={section.sectionNumber}
+                    className={section.status === 'generating' ? 'border-primary' : ''}
+                  >
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <span>Section {section.sectionNumber}</span>
+                        {section.status === 'generating' && (
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        )}
+                        {section.status === 'completed' && (
+                          <span className="text-sm text-green-600"> Complete</span>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    {section.content && (
+                      <CardContent className="space-y-4">
+                        {section.thinking && formData.extendedThinking && (
+                          <details className="border-l-2 border-primary/30 pl-4">
+                            <summary className="cursor-pointer text-sm text-muted-foreground flex items-center gap-2">
+                              <Brain className="w-4 h-4" />
+                              Extended Thinking
+                            </summary>
+                            <div className="mt-2 text-xs prose prose-sm dark:prose-invert max-w-none">
+                              <ReactMarkdown>{section.thinking}</ReactMarkdown>
+                            </div>
+                          </details>
+                        )}
+                        <div className="prose dark:prose-invert max-w-none">
+                          <ReactMarkdown>{section.content}</ReactMarkdown>
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                ))}
+
+                {allSectionsCompleted && (
+                  <Card className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900">
+                    <CardContent className="py-6 text-center">
+                      <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
+                        Script Generation Complete!
+                      </h3>
+                      <p className="text-green-700 dark:text-green-300 mb-4">
+                        All {sections.length} sections have been generated successfully
+                      </p>
+                      <Button onClick={handleDownload}>
+                        <Download className="w-4 h-4 mr-2" />
+                        Download as Markdown
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
