@@ -229,6 +229,22 @@ export default function GeneratePage() {
     window.open(`/api/scripts/${scriptId}/download`, '_blank');
   };
 
+  const handleDownloadSection = (sectionNumber: number, content: string) => {
+    if (!channel) return;
+
+    const sectionContent = `# ${channel.name} - Section ${sectionNumber}\n\n${content}`;
+
+    const blob = new Blob([sectionContent], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${channel.name.replace(/\s+/g, '-')}-section-${sectionNumber}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -447,7 +463,18 @@ export default function GeneratePage() {
                           <Loader2 className="w-4 h-4 animate-spin text-primary" />
                         )}
                         {section.status === 'completed' && (
-                          <span className="text-sm text-green-600"> Complete</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-green-600"> Complete</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDownloadSection(section.sectionNumber, section.content)}
+                              className="h-8"
+                            >
+                              <Download className="w-3 h-3 mr-1" />
+                              Download
+                            </Button>
+                          </div>
                         )}
                       </CardTitle>
                     </CardHeader>

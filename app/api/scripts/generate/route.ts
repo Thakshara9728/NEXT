@@ -6,17 +6,17 @@ import { ChatSettings } from '@/types';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Rate limit constants
+// Rate limit constants (Tier 1)
 const RATE_LIMITS = {
   'claude-sonnet-3-7': {
     requestsPerMinute: 50,
-    tokensPerMinute: 40000,
-    tokensPerDay: 1000000,
+    inputTokensPerMinute: 20000,  // ITPM
+    outputTokensPerMinute: 8000,  // OTPM
   },
   'claude-sonnet-4-5': {
     requestsPerMinute: 50,
-    tokensPerMinute: 40000,
-    tokensPerDay: 1000000,
+    inputTokensPerMinute: 30000,  // ITPM
+    outputTokensPerMinute: 8000,  // OTPM
   },
 };
 
