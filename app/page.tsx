@@ -1,248 +1,152 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { useChatStore } from '@/lib/store';
-import { ChatMessage } from '@/components/chat/chat-message';
-import { ChatInput } from '@/components/chat/chat-input';
-import { SettingsPanel } from '@/components/chat/settings-panel';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Trash2, Menu, X, Youtube } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Plus, Youtube, Trash2, Edit, FileText } from 'lucide-react';
+import Link from 'next/link';
+import { Channel } from '@/types/database';
 
 export default function Home() {
-  const { messages, settings, isStreaming, addMessage, updateLastMessage, clearMessages, setStreaming } = useChatStore();
-  const [showSettings, setShowSettings] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    fetchChannels();
+  }, []);
 
-  const handleSendMessage = async (content: string) => {
-    if (isStreaming) return;
-
-    setError(null);
-
-    // Add user message
-    const userMessage = {
-      id: Date.now().toString(),
-      role: 'user' as const,
-      content,
-      timestamp: new Date(),
-      model: settings.model,
-    };
-
-    addMessage(userMessage);
-
-    // Create assistant message placeholder
-    const assistantMessage = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant' as const,
-      content: '',
-      thinking: '',
-      timestamp: new Date(),
-      model: settings.model,
-      citations: [],
-    };
-
-    addMessage(assistantMessage);
-    setStreaming(true);
-
-    // Create abort controller for this request
-    abortControllerRef.current = new AbortController();
-
+  const fetchChannels = async () => {
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage],
-          settings,
-        }),
-        signal: abortControllerRef.current.signal,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get response');
+      const response = await fetch('/api/channels');
+      if (response.ok) {
+        const data = await response.json();
+        setChannels(data);
       }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      let currentContent = '';
-      let currentThinking = '';
-      let currentCitations: any[] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-
-            if (data === '[DONE]') {
-              break;
-            }
-
-            try {
-              const parsed = JSON.parse(data);
-
-              if (parsed.type === 'error') {
-                throw new Error(parsed.error);
-              }
-
-              if (parsed.type === 'thinking') {
-                currentThinking = parsed.content || '';
-                updateLastMessage(currentContent, currentThinking, currentCitations);
-              } else if (parsed.type === 'content') {
-                currentContent = parsed.content || '';
-                updateLastMessage(currentContent, currentThinking, currentCitations);
-              } else if (parsed.type === 'citation') {
-                currentContent = parsed.content || '';
-                if (parsed.citations) {
-                  currentCitations = [...currentCitations, ...parsed.citations];
-                }
-                updateLastMessage(currentContent, currentThinking, currentCitations);
-              }
-            } catch (e) {
-              // Skip invalid JSON
-            }
-          }
-        }
-      }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.log('Request aborted');
-      } else {
-        console.error('Error:', error);
-        setError(error.message || 'An error occurred');
-      }
+    } catch (error) {
+      console.error('Error fetching channels:', error);
     } finally {
-      setStreaming(false);
-      abortControllerRef.current = null;
+      setLoading(false);
     }
   };
 
-  const handleClearChat = () => {
-    if (confirm('Are you sure you want to clear all messages?')) {
-      clearMessages();
-      setError(null);
+  const deleteChannel = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this channel? All scripts will be deleted.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/channels/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setChannels(channels.filter((c) => c.id !== id));
+      }
+    } catch (error) {
+      console.error('Error deleting channel:', error);
     }
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="border-b bg-card px-4 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
               <Youtube className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">Claude YouTube Generator</h1>
+              <h1 className="text-2xl font-bold">YouTube Script Generator</h1>
               <p className="text-sm text-muted-foreground">
-                AI-powered content creation with {settings.model === 'claude-sonnet-4-5' ? 'Sonnet 4.5' : 'Sonnet 3.7'}
+                Powered by Claude AI
               </p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleClearChat}
-              disabled={messages.length === 0 || isStreaming}
-              title="Clear chat"
-            >
-              <Trash2 className="w-4 h-4" />
+          <Link href="/channels/new">
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              New Channel
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowSettings(!showSettings)}
-              className="lg:hidden"
-            >
-              {showSettings ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            </Button>
-          </div>
-        </header>
+          </Link>
+        </div>
+      </header>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="max-w-4xl mx-auto">
-            {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <Card className="p-8 text-center max-w-md">
-                  <Youtube className="w-16 h-16 mx-auto mb-4 text-primary" />
-                  <h2 className="text-2xl font-bold mb-2">Welcome to Claude YouTube Generator</h2>
-                  <p className="text-muted-foreground mb-4">
-                    Start creating amazing YouTube scripts and content with the power of Claude AI.
-                  </p>
-                  <div className="text-left space-y-2 text-sm">
-                    <p className="font-semibold">Features:</p>
-                    <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                      <li>Extended thinking for deeper analysis</li>
-                      <li>Web search integration</li>
-                      <li>Prompt caching for efficiency</li>
-                      <li>Real-time streaming responses</li>
-                      <li>Multiple Claude models</li>
-                    </ul>
-                  </div>
-                </Card>
-              </div>
-            ) : (
-              <>
-                {messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
-                ))}
-                <div ref={messagesEndRef} />
-              </>
-            )}
-
-            {error && (
-              <Card className="p-4 bg-destructive/10 border-destructive">
-                <p className="text-sm text-destructive font-medium">Error: {error}</p>
-              </Card>
-            )}
-          </div>
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold mb-2">Your Channels</h2>
+          <p className="text-muted-foreground">
+            Manage your YouTube channels and generate scripts with custom prompts
+          </p>
         </div>
 
-        {/* Input Area */}
-        <ChatInput
-          onSendMessage={handleSendMessage}
-          isLoading={isStreaming}
-        />
-      </div>
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading channels...</p>
+          </div>
+        ) : channels.length === 0 ? (
+          <Card className="py-12">
+            <CardContent className="text-center">
+              <Youtube className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-xl font-semibold mb-2">No channels yet</h3>
+              <p className="text-muted-foreground mb-4">
+                Create your first channel to start generating YouTube scripts
+              </p>
+              <Link href="/channels/new">
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Channel
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {channels.map((channel) => (
+              <Card key={channel.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="truncate">{channel.name}</span>
+                    <Youtube className="w-5 h-5 text-primary flex-shrink-0" />
+                  </CardTitle>
+                  {channel.description && (
+                    <CardDescription className="line-clamp-2">
+                      {channel.description}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                    <FileText className="w-4 h-4" />
+                    <span>{channel._count?.scripts || 0} scripts generated</span>
+                  </div>
 
-      {/* Settings Sidebar */}
-      <aside
-        className={`
-          w-80 border-l bg-card overflow-y-auto p-4
-          ${showSettings ? 'block' : 'hidden'} lg:block
-        `}
-      >
-        <SettingsPanel />
-      </aside>
+                  <div className="flex gap-2">
+                    <Link href={`/generate/${channel.id}`} className="flex-1">
+                      <Button className="w-full" size="sm">
+                        Generate Script
+                      </Button>
+                    </Link>
+                    <Link href={`/channels/${channel.id}`}>
+                      <Button variant="outline" size="sm">
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteChannel(channel.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Channel {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  systemPrompt   String   @default("")
+  startingPrompt String   @default("")
+  continuePrompt String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  scripts        Script[]
+
+  @@map("channels")
+}
+
+model Script {
+  id        String          @id @default(cuid())
+  channelId String
+  channel   Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  title     String
+  topic     String?
+  status    String          @default("generating") // 'generating', 'completed', 'failed'
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  sections  ScriptSection[]
+
+  @@map("scripts")
+}
+
+model ScriptSection {
+  id            String   @id @default(cuid())
+  scriptId      String
+  script        Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  sectionNumber Int
+  content       String
+  thinking      String?
+  createdAt     DateTime @default(now())
+
+  @@map("script_sections")
+}

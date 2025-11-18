@@ -29,7 +29,8 @@ export class ClaudeAPI {
    */
   async *streamMessage(
     messages: Message[],
-    settings: ChatSettings
+    settings: ChatSettings,
+    customSystemPrompt?: string
   ): AsyncGenerator<{
     type: 'content' | 'thinking' | 'signature' | 'done' | 'error' | 'citation';
     content?: string;
@@ -42,8 +43,8 @@ export class ClaudeAPI {
       // Build system prompt with caching
       const systemMessages: Anthropic.Messages.MessageCreateParams['system'] = [];
 
-      // Base system prompt (cached for efficiency)
-      const baseSystemPrompt = `You are Claude, a helpful AI assistant specialized in generating YouTube scripts and assisting with content creation.
+      // Use custom system prompt if provided, otherwise use default
+      const baseSystemPrompt = customSystemPrompt || `You are Claude, a helpful AI assistant specialized in generating YouTube scripts and assisting with content creation.
 
 You have access to real-time web information through the web search tool when needed.
 
@@ -209,13 +210,14 @@ When using web search:
    */
   async sendMessage(
     messages: Message[],
-    settings: ChatSettings
+    settings: ChatSettings,
+    customSystemPrompt?: string
   ): Promise<{ content: string; thinking?: string; citations?: any[] }> {
     const modelId = MODEL_MAP[settings.model];
 
     const systemMessages: Anthropic.Messages.MessageCreateParams['system'] = [];
 
-    const baseSystemPrompt = `You are Claude, a helpful AI assistant specialized in generating YouTube scripts and assisting with content creation.
+    const baseSystemPrompt = customSystemPrompt || `You are Claude, a helpful AI assistant specialized in generating YouTube scripts and assisting with content creation.
 
 You have access to real-time web information through the web search tool when needed.`;
 
