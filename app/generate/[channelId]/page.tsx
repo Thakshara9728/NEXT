@@ -118,78 +118,98 @@ export default function GeneratePage() {
         throw new Error('No response body');
       }
 
+      let buffer = '';
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            const eventType = line.slice(7);
-            const nextLine = lines[lines.indexOf(line) + 1];
+        // Split by double newline to get complete SSE events
+        const events = buffer.split('\n\n');
 
-            if (nextLine && nextLine.startsWith('data: ')) {
-              const data = JSON.parse(nextLine.slice(6));
+        // Keep the last incomplete event in buffer
+        buffer = events.pop() || '';
 
-              if (eventType === 'rate_limit_info') {
-                setRateLimitInfo(data);
-              } else if (eventType === 'section_start') {
-                setCurrentSection(data.sectionNumber);
-                setWaitingMessage(null);
-                setSections(prev =>
-                  prev.map(s =>
-                    s.sectionNumber === data.sectionNumber
-                      ? { ...s, status: 'generating' }
-                      : s
-                  )
-                );
-                if (!scriptId && data.scriptId) {
-                  setScriptId(data.scriptId);
-                }
-              } else if (eventType === 'thinking') {
-                setSections(prev =>
-                  prev.map(s =>
-                    s.sectionNumber === data.sectionNumber
-                      ? { ...s, thinking: data.thinking }
-                      : s
-                  )
-                );
-              } else if (eventType === 'content') {
-                setSections(prev =>
-                  prev.map(s =>
-                    s.sectionNumber === data.sectionNumber
-                      ? { ...s, content: data.content }
-                      : s
-                  )
-                );
-              } else if (eventType === 'section_complete') {
-                setSections(prev =>
-                  prev.map(s =>
-                    s.sectionNumber === data.sectionNumber
-                      ? { ...s, status: 'completed' }
-                      : s
-                  )
-                );
-              } else if (eventType === 'waiting') {
-                setWaitingMessage(data.message);
-              } else if (eventType === 'generation_complete') {
-                if (data.scriptId) {
-                  setScriptId(data.scriptId);
-                }
-                setWaitingMessage(null);
-              } else if (eventType === 'rate_limit_error') {
-                setRateLimitError(data.error);
-                alert(`Rate Limit Error: ${data.error}\n\nDetails: ${data.details}`);
-              } else if (eventType === 'error') {
-                const errorMsg = data.error || 'Unknown error';
-                if (errorMsg.includes('rate_limit') || errorMsg.includes('429')) {
-                  setRateLimitError('Rate limit exceeded. Please wait and try again.');
-                }
-                alert(`Error: ${errorMsg}`);
-              }
+        for (const event of events) {
+          if (!event.trim()) continue;
+
+          const lines = event.split('\n');
+          let eventType = '';
+          let eventData = '';
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              eventType = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              eventData += line.slice(6);
             }
+          }
+
+          if (!eventType || !eventData) continue;
+
+          try {
+            const data = JSON.parse(eventData);
+
+            if (eventType === 'rate_limit_info') {
+              setRateLimitInfo(data);
+            } else if (eventType === 'section_start') {
+              setCurrentSection(data.sectionNumber);
+              setWaitingMessage(null);
+              setSections(prev =>
+                prev.map(s =>
+                  s.sectionNumber === data.sectionNumber
+                    ? { ...s, status: 'generating' }
+                    : s
+                )
+              );
+              if (!scriptId && data.scriptId) {
+                setScriptId(data.scriptId);
+              }
+            } else if (eventType === 'thinking') {
+              setSections(prev =>
+                prev.map(s =>
+                  s.sectionNumber === data.sectionNumber
+                    ? { ...s, thinking: data.thinking }
+                    : s
+                )
+              );
+            } else if (eventType === 'content') {
+              setSections(prev =>
+                prev.map(s =>
+                  s.sectionNumber === data.sectionNumber
+                    ? { ...s, content: data.content }
+                    : s
+                )
+              );
+            } else if (eventType === 'section_complete') {
+              setSections(prev =>
+                prev.map(s =>
+                  s.sectionNumber === data.sectionNumber
+                    ? { ...s, status: 'completed' }
+                    : s
+                )
+              );
+            } else if (eventType === 'waiting') {
+              setWaitingMessage(data.message);
+            } else if (eventType === 'generation_complete') {
+              if (data.scriptId) {
+                setScriptId(data.scriptId);
+              }
+              setWaitingMessage(null);
+            } else if (eventType === 'rate_limit_error') {
+              setRateLimitError(data.error);
+              alert(`Rate Limit Error: ${data.error}\n\nDetails: ${data.details}`);
+            } else if (eventType === 'error') {
+              const errorMsg = data.error || 'Unknown error';
+              if (errorMsg.includes('rate_limit') || errorMsg.includes('429')) {
+                setRateLimitError('Rate limit exceeded. Please wait and try again.');
+              }
+              alert(`Error: ${errorMsg}`);
+            }
+          } catch (parseError) {
+            console.error('Failed to parse SSE event:', parseError, 'Data:', eventData);
           }
         }
       }
