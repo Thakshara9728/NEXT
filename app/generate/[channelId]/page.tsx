@@ -404,7 +404,8 @@ export default function GeneratePage() {
                   <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
                     <p className="font-semibold">Rate Limits ({rateLimitInfo.model}):</p>
                     <p>• {rateLimitInfo.limits.requestsPerMinute} requests/min</p>
-                    <p>• {rateLimitInfo.limits.tokensPerMinute.toLocaleString()} tokens/min</p>
+                    <p>• {rateLimitInfo.limits.inputTokensPerMinute?.toLocaleString()} input tokens/min</p>
+                    <p>• {rateLimitInfo.limits.outputTokensPerMinute?.toLocaleString()} output tokens/min</p>
                     <p>• {rateLimitInfo.delayBetweenSections}s delay between sections</p>
                   </div>
                 )}
