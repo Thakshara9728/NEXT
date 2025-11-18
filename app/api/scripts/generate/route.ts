@@ -8,13 +8,18 @@ export const runtime = 'nodejs';
 
 // Extract artifact content from Claude response
 function extractArtifactContent(content: string): string {
-  // Match content between <antArtifact> tags
-  const artifactRegex = /<antArtifact[^>]*>([\s\S]*?)<\/antArtifact>/;
+  // Match content between <antArtifact> tags (case-insensitive)
+  const artifactRegex = /<antArtifact[^>]*>([\s\S]*?)<\/antArtifact>/i;
   const match = content.match(artifactRegex);
 
   if (match && match[1]) {
-    return match[1].trim();
+    const extracted = match[1].trim();
+    console.log('[Artifact] Extracted artifact content:', extracted.substring(0, 100) + '...');
+    return extracted;
   }
+
+  // Log when no artifacts found
+  console.log('[Artifact] No artifact tags found. Content preview:', content.substring(0, 200));
 
   // If no artifact tags, return the content as-is
   return content;

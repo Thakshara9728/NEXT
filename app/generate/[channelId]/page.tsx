@@ -214,9 +214,25 @@ export default function GeneratePage() {
     }
   };
 
-  const handleDownload = async () => {
-    if (!scriptId) return;
-    window.open(`/api/scripts/${scriptId}/download`, '_blank');
+  const handleDownload = () => {
+    if (!channel || sections.length === 0) return;
+
+    // Combine all sections into one markdown file
+    const allContent = sections
+      .map((s) => `# Section ${s.sectionNumber}\n\n${s.content}`)
+      .join('\n\n---\n\n');
+
+    const fullScript = `# ${channel.name} - Complete Script\n\n${allContent}`;
+
+    const blob = new Blob([fullScript], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${channel.name.replace(/\s+/g, '-')}-complete-script.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleDownloadSection = (sectionNumber: number, content: string) => {
