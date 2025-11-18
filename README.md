@@ -5,13 +5,15 @@ A modern, production-ready web application built with Next.js 15 and Claude API 
 ## ✨ Features
 
 ### Core AI Features
-- **🤖 Multiple Claude Models**: Support for Claude Sonnet 3.7 and 4.5
+- **🤖 Multi-AI Provider Support**: Choose between Claude (Anthropic) and Gemini (Google)
+  - **Claude**: Sonnet 3.7 and 4.5 models
+  - **Gemini**: 3.0 Pro, 2.0 Flash, and 2.0 Thinking models
 - **🧠 Extended Thinking**: Enable deeper reasoning with configurable thinking budgets (1K-32K tokens)
 - **📡 Real-time Streaming**: Server-Sent Events (SSE) for incremental response delivery
-- **💭 Thinking Visualization**: Collapsible thinking blocks showing Claude's reasoning process
-- **🌐 Native Web Search**: Claude's built-in web search with automatic source citations
+- **💭 Thinking Visualization**: Collapsible thinking blocks showing AI's reasoning process
+- **🌐 Native Web Search**: Built-in web search for both Claude and Gemini with automatic source citations
 - **📚 Source Citations**: Clickable references to web sources with excerpts
-- **⚡ Prompt Caching**: Reduce costs up to 90% and improve latency
+- **⚡ Prompt Caching**: Reduce costs up to 90% and improve latency (Claude)
 - **🔐 Signature Verification**: Automatic thinking block signature handling
 
 ### UI/UX Features
@@ -63,11 +65,20 @@ npm install --legacy-peer-deps
 Create a `.env.local` file in the root directory:
 
 ```env
-# Required: Your Claude API key
-ANTHROPIC_API_KEY=your_api_key_here
+# Claude API key (for Claude models)
+ANTHROPIC_API_KEY=your_anthropic_key_here
+
+# Gemini API key (for Google Gemini models) - Optional
+GEMINI_API_KEY=your_gemini_key_here
 ```
 
-**Note**: Web search is built into Claude's API - no separate API key needed!
+**Multi-AI Provider Support**: The app now supports both Claude and Gemini!
+- **Claude**: Advanced reasoning, extended thinking, prompt caching
+- **Gemini**: High rate limits, Google Search, cost-effective
+
+See [Gemini Integration Guide](docs/GEMINI_INTEGRATION.md) for details.
+
+**Note**: Web search is built into both APIs - no separate API key needed!
 
 ### 3. Run Development Server
 

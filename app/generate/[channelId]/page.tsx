@@ -28,6 +28,7 @@ export default function GeneratePage() {
     title: '',
     topic: '',
     transcript: '',
+    provider: 'claude', // 'claude' or 'gemini'
     model: 'claude-sonnet-4-5',
     maxTokens: 4096,
     temperature: 1.0,
@@ -91,7 +92,12 @@ export default function GeneratePage() {
     setSections(initialSections);
 
     try {
-      const response = await fetch('/api/scripts/generate', {
+      // Choose endpoint based on provider
+      const endpoint = formData.provider === 'gemini'
+        ? '/api/scripts/generate-gemini'
+        : '/api/scripts/generate';
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -342,6 +348,26 @@ export default function GeneratePage() {
                 </div>
 
                 <div>
+                  <Label className="text-xs font-medium" htmlFor="provider">AI Provider</Label>
+                  <Select
+                    value={formData.provider}
+                    onValueChange={(value) => {
+                      const defaultModel = value === 'gemini' ? 'gemini-3-pro' : 'claude-sonnet-4-5';
+                      setFormData({ ...formData, provider: value, model: defaultModel });
+                    }}
+                    disabled={generating}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="claude">Claude (Anthropic)</SelectItem>
+                      <SelectItem value="gemini">Gemini (Google)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
                   <Label className="text-xs font-medium" htmlFor="model">Model</Label>
                   <Select
                     value={formData.model}
@@ -352,8 +378,18 @@ export default function GeneratePage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="claude-sonnet-3-7">Sonnet 3.7</SelectItem>
-                      <SelectItem value="claude-sonnet-4-5">Sonnet 4.5</SelectItem>
+                      {formData.provider === 'claude' ? (
+                        <>
+                          <SelectItem value="claude-sonnet-3-7">Sonnet 3.7</SelectItem>
+                          <SelectItem value="claude-sonnet-4-5">Sonnet 4.5</SelectItem>
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem value="gemini-3-pro">Gemini 3.0 Pro</SelectItem>
+                          <SelectItem value="gemini-2-flash">Gemini 2.0 Flash</SelectItem>
+                          <SelectItem value="gemini-2-thinking">Gemini 2.0 Thinking</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
