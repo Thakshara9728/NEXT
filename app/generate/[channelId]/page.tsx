@@ -26,6 +26,7 @@ export default function GeneratePage() {
   const [formData, setFormData] = useState({
     title: '',
     topic: '',
+    youtubeUrl: '',
     model: 'claude-sonnet-4-5',
     maxTokens: 4096,
     temperature: 1.0,
@@ -47,6 +48,7 @@ export default function GeneratePage() {
   const [waitingMessage, setWaitingMessage] = useState<string | null>(null);
   const [rateLimitInfo, setRateLimitInfo] = useState<any>(null);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+  const [transcriptStatus, setTranscriptStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetchChannel();
@@ -80,6 +82,7 @@ export default function GeneratePage() {
     setWaitingMessage(null);
     setRateLimitError(null);
     setRateLimitInfo(null);
+    setTranscriptStatus(null);
 
     // Initialize sections
     const initialSections = Array.from({ length: formData.maxSections }, (_, i) => ({
@@ -98,6 +101,7 @@ export default function GeneratePage() {
           channelId,
           title: formData.title,
           topic: formData.topic,
+          youtubeUrl: formData.youtubeUrl,
           maxSections: formData.maxSections,
           settings: {
             model: formData.model,
@@ -152,7 +156,15 @@ export default function GeneratePage() {
           try {
             const data = JSON.parse(eventData);
 
-            if (eventType === 'rate_limit_info') {
+            if (eventType === 'transcript_fetching') {
+              setTranscriptStatus('Fetching YouTube transcript...');
+            } else if (eventType === 'transcript_success') {
+              setTranscriptStatus('Transcript fetched successfully');
+              setTimeout(() => setTranscriptStatus(null), 3000);
+            } else if (eventType === 'transcript_error') {
+              setTranscriptStatus(`Transcript error: ${data.error}`);
+              setTimeout(() => setTranscriptStatus(null), 5000);
+            } else if (eventType === 'rate_limit_info') {
               setRateLimitInfo(data);
             } else if (eventType === 'section_start') {
               setCurrentSection(data.sectionNumber);
@@ -301,6 +313,20 @@ export default function GeneratePage() {
                 </div>
 
                 <div>
+                  <Label htmlFor="youtubeUrl">YouTube URL (Optional)</Label>
+                  <Input
+                    id="youtubeUrl"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={formData.youtubeUrl}
+                    onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
+                    disabled={generating}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Transcript will be included with the first section
+                  </p>
+                </div>
+
+                <div>
                   <Label htmlFor="model">Model</Label>
                   <Select
                     value={formData.model}
@@ -381,6 +407,22 @@ export default function GeneratePage() {
                     <p>• {rateLimitInfo.limits.requestsPerMinute} requests/min</p>
                     <p>• {rateLimitInfo.limits.tokensPerMinute.toLocaleString()} tokens/min</p>
                     <p>• {rateLimitInfo.delayBetweenSections}s delay between sections</p>
+                  </div>
+                )}
+
+                {/* Transcript Status */}
+                {transcriptStatus && (
+                  <div className={`text-sm p-3 rounded-md border ${
+                    transcriptStatus.includes('error')
+                      ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900'
+                      : transcriptStatus.includes('Fetching')
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900'
+                      : 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900'
+                  }`}>
+                    {transcriptStatus.includes('Fetching') && (
+                      <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
+                    )}
+                    {transcriptStatus}
                   </div>
                 )}
 

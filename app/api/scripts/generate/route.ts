@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ClaudeAPI } from '@/lib/claude-api';
 import { ChatSettings } from '@/types';
+import { fetchYoutubeTranscript } from '@/lib/youtube-transcript';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -54,7 +55,7 @@ async function retryWithBackoff<T>(
 // POST /api/scripts/generate
 export async function POST(req: NextRequest) {
   try {
-    const { channelId, title, topic, settings, maxSections = 5 } = await req.json();
+    const { channelId, title, topic, youtubeUrl, settings, maxSections = 5 } = await req.json();
 
     if (!channelId || !title) {
       return new Response(
@@ -107,6 +108,7 @@ export async function POST(req: NextRequest) {
         try {
           let currentSectionNumber = 1;
           let conversationHistory: any[] = [];
+          let youtubeTranscript: string | null = null;
 
           // Helper to send SSE events
           const sendEvent = (event: string, data: any) => {
@@ -114,6 +116,25 @@ export async function POST(req: NextRequest) {
               encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
             );
           };
+
+          // Fetch YouTube transcript if URL provided
+          if (youtubeUrl && youtubeUrl.trim()) {
+            sendEvent('transcript_fetching', { url: youtubeUrl });
+
+            const transcriptResult = await fetchYoutubeTranscript(youtubeUrl.trim());
+
+            if (transcriptResult.success && transcriptResult.transcript) {
+              youtubeTranscript = transcriptResult.transcript;
+              sendEvent('transcript_success', {
+                length: youtubeTranscript.length
+              });
+            } else {
+              sendEvent('transcript_error', {
+                error: transcriptResult.error || 'Failed to fetch transcript'
+              });
+              // Continue without transcript - don't fail the whole generation
+            }
+          }
 
           // Send rate limit info
           const model = settings.model || 'claude-sonnet-4-5';
@@ -141,6 +162,11 @@ export async function POST(req: NextRequest) {
             if (currentSectionNumber === 1) {
               // First section: use starting prompt
               userPrompt = channel.startingPrompt.replace('{topic}', topic || title);
+
+              // Append YouTube transcript if available
+              if (youtubeTranscript) {
+                userPrompt += `\n\n---\n\nYouTube Video Transcript (for reference and factual accuracy):\n\n${youtubeTranscript}`;
+              }
             } else {
               // Subsequent sections: use continue prompt
               userPrompt = channel.continuePrompt;
