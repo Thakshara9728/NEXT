@@ -1,29 +1,33 @@
 # Claude YouTube Script Generator
 
-A modern, clean web application built with Next.js 15 and Claude API for generating YouTube scripts and content. This app showcases cutting-edge 2025 web development practices and Claude's advanced AI capabilities.
+A modern, production-ready web application built with Next.js 15 and Claude API featuring **real-time streaming**, **extended thinking**, and **prompt caching**. This app showcases cutting-edge 2025 web development practices and Claude's most advanced AI capabilities.
 
 ## ✨ Features
 
 ### Core AI Features
 - **🤖 Multiple Claude Models**: Support for Claude Sonnet 3.7 and 4.5
-- **🧠 Extended Thinking**: Enable deeper reasoning and analysis for complex content
+- **🧠 Extended Thinking**: Enable deeper reasoning with configurable thinking budgets (1K-32K tokens)
+- **📡 Real-time Streaming**: Server-Sent Events (SSE) for incremental response delivery
+- **💭 Thinking Visualization**: Collapsible thinking blocks showing Claude's reasoning process
 - **🌐 Web Search Integration**: Enhance responses with current web information
-- **⚡ Prompt Caching**: Reduce costs and latency by caching system prompts
-- **📡 Real-time Streaming**: See responses as they're generated
+- **⚡ Prompt Caching**: Reduce costs up to 90% and improve latency
+- **🔐 Signature Verification**: Automatic thinking block signature handling
 
 ### UI/UX Features
 - **🎨 Modern Clean Design**: Built with Tailwind CSS and shadcn/ui components
 - **🌓 Responsive Layout**: Works seamlessly on desktop and mobile
 - **💬 Chat Interface**: Intuitive conversation flow with message history
-- **⚙️ Customizable Settings**: Fine-tune model parameters and features
+- **⚙️ Customizable Settings**: Fine-tune all model parameters
 - **📝 Markdown Support**: Rich text formatting in responses
+- **🎯 Thinking Controls**: Expandable/collapsible thinking blocks
 
 ### Technical Features
-- **⚛️ React 19 & Next.js 15**: Latest stable versions with App Router
-- **📘 TypeScript (Strict Mode)**: Full type safety throughout the application
-- **🔄 Zustand State Management**: Lightweight and efficient state handling
-- **🎯 Server Components**: Optimal performance with React Server Components
-- **🚀 Modern Build System**: Turbopack for lightning-fast development
+- **⚛️ React 19 & Next.js 15**: Latest versions with App Router
+- **📘 TypeScript (Strict Mode)**: Full type safety
+- **🔄 Zustand State Management**: Lightweight and efficient
+- **🎯 Server Components**: Optimal performance
+- **🚀 Modern Build System**: Turbopack for fast development
+- **🔥 Proper Event Handling**: Full SSE event type support
 
 ## 🏗️ Architecture
 
@@ -34,7 +38,7 @@ This application follows 2025 best practices:
 - **Server-Side Rendering** with streaming support
 - **Atomic design principles** with shadcn/ui components
 - **Zustand** for minimal, performant state management
-- **API Routes** for backend functionality
+- **API Routes** with proper SSE implementation
 
 ## 📋 Prerequisites
 
@@ -77,18 +81,18 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ├── app/
 │   ├── api/
 │   │   └── chat/
-│   │       └── route.ts          # Streaming API endpoint
+│   │       └── route.ts          # SSE streaming endpoint
 │   ├── layout.tsx                # Root layout
 │   ├── page.tsx                  # Main chat interface
 │   └── globals.css               # Global styles
 ├── components/
 │   ├── chat/
-│   │   ├── chat-message.tsx      # Message component
+│   │   ├── chat-message.tsx      # Message with thinking display
 │   │   ├── chat-input.tsx        # Input component
-│   │   └── settings-panel.tsx    # Settings sidebar
+│   │   └── settings-panel.tsx    # Settings with thinking budget
 │   └── ui/                       # shadcn/ui components
 ├── lib/
-│   ├── claude-api.ts             # Claude API integration
+│   ├── claude-api.ts             # Claude API with full streaming
 │   ├── web-search.ts             # Web search functionality
 │   ├── store.ts                  # Zustand state management
 │   └── utils.ts                  # Utility functions
@@ -108,9 +112,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Extended Thinking
 
 Enable in settings for Claude to show its reasoning process:
-- Great for complex analysis
-- Helpful for understanding Claude's approach
-- Uses additional tokens
+- Great for complex analysis, math, coding, and strategic thinking
+- Configurable thinking budget (1,024 - 32,768 tokens)
+- Auto mode uses 25% of max tokens
+- Thinking blocks are collapsible for better UX
+- Higher budgets = more thorough reasoning (with diminishing returns)
+
+**Best Practices:**
+- Start with minimum budget (1,024 tokens) for simple tasks
+- Use 4K-8K for moderate complexity
+- Use 16K-32K for highly complex reasoning tasks
+- Monitor thinking usage to optimize costs
 
 ### Web Search
 
@@ -122,8 +134,8 @@ Enable to include current web information:
 ### Model Selection
 
 Choose between models:
-- **Claude Sonnet 4.5**: Latest, most capable model
-- **Claude Sonnet 3.7**: Fast and efficient for most tasks
+- **Claude Sonnet 4.5**: Latest, most capable model with summarized thinking
+- **Claude Sonnet 3.7**: Fast and efficient, returns full thinking output
 
 ## 🔧 Configuration
 
@@ -133,6 +145,7 @@ Access via the sidebar (right side on desktop, menu button on mobile):
 
 - **Model**: Choose Claude Sonnet 3.7 or 4.5
 - **Extended Thinking**: Toggle deeper reasoning
+- **Thinking Budget**: Configure tokens allocated for reasoning (shown when extended thinking is enabled)
 - **Web Search**: Enable web context
 - **Prompt Caching**: Reduce costs (recommended)
 - **Temperature**: Control creativity (0-2)
@@ -142,23 +155,53 @@ Access via the sidebar (right side on desktop, menu button on mobile):
 
 ### Claude API Features
 
-#### Prompt Caching
-Automatically caches system prompts to:
-- Reduce API costs (up to 90% cheaper)
-- Decrease latency
-- Improve response times
+#### Real-time Streaming
 
-#### Streaming
-Real-time response delivery:
-- Better user experience
-- Lower perceived latency
-- Progressive content display
+Uses Server-Sent Events (SSE) for optimal performance:
+- Incremental content delivery
+- Thinking deltas as they're generated
+- Signature verification
+- Error handling with graceful recovery
+
+Event types handled:
+- `message_start` - New message initialization
+- `content_block_start` - Content block beginning
+- `content_block_delta` - Incremental updates (text, thinking, signature)
+- `content_block_stop` - Content block completion
+- `message_delta` - Message-level updates
+- `message_stop` - Stream completion
+- `ping` - Keep-alive events
+- `error` - Error events
 
 #### Extended Thinking
-Special mode for:
-- Complex analysis
-- Step-by-step reasoning
-- Detailed explanations
+
+Special mode for complex reasoning:
+- **Thinking Budget**: Configurable from 1,024 to 32,768+ tokens
+- **Auto Mode**: Defaults to 25% of max_tokens
+- **Minimum**: 1,024 tokens
+- **Signature Handling**: Automatic verification of thinking blocks
+- **Summarization** (Claude 4 models): Thinking is summarized but you're billed for full tokens
+- **Full Output** (Claude 3.7): Returns complete thinking process
+
+**Thinking Budget Guidelines:**
+- Simple tasks: 1,024 - 2,048 tokens
+- Moderate complexity: 4,096 - 8,192 tokens
+- Complex analysis: 16,384+ tokens
+- Critical tasks: Test different budgets to find optimal balance
+
+#### Prompt Caching
+
+Automatically caches system prompts to:
+- Reduce API costs (up to 90% cheaper on cached content)
+- Decrease latency
+- Improve response times
+- Works with extended thinking
+
+**Cache Behavior:**
+- System prompts are cached persistently
+- Thinking blocks from previous turns are removed from context
+- Changing thinking parameters invalidates message cache
+- Tools and system prompts remain cached despite thinking changes
 
 ### Web Search Integration
 
@@ -186,6 +229,31 @@ npm run build
 npm start
 ```
 
+## 📊 Understanding Thinking
+
+### What is Extended Thinking?
+
+Extended thinking allows Claude to engage in deeper reasoning before responding:
+
+1. **Thinking Phase**: Claude reasons through the problem step-by-step
+2. **Response Phase**: Claude provides the final answer based on reasoning
+
+### Thinking Visualization
+
+The UI shows thinking blocks:
+- **Collapsed by default** for clean interface
+- **Click to expand** to see Claude's reasoning
+- **Brain icon** indicates thinking is present
+- **Formatted as markdown** for readability
+
+### Pricing Considerations
+
+When using extended thinking:
+- **Billed for full thinking tokens** (not summary in Claude 4 models)
+- **Previous thinking blocks** don't count toward context window
+- **Current turn thinking** counts toward max_tokens limit
+- Monitor usage to optimize costs
+
 ## 🔮 Future Enhancements
 
 This app is designed to be extended with:
@@ -196,12 +264,13 @@ This app is designed to be extended with:
 - 👥 Multi-user support
 - 🎨 Theme customization
 - 📤 Export functionality
+- 🔧 Tool use integration
 
 ## 🛠️ Technology Stack
 
 ### Frontend
 - **Next.js 15**: React framework with App Router
-- **React 19**: Latest React with Server Components
+- **React 19**: Latest with Server Components
 - **TypeScript 5**: Strict type checking
 - **Tailwind CSS 3**: Utility-first CSS
 - **shadcn/ui**: High-quality React components
@@ -211,7 +280,7 @@ This app is designed to be extended with:
 - **Zustand**: Lightweight state management
 
 ### Backend
-- **Next.js API Routes**: Serverless functions
+- **Next.js API Routes**: Serverless functions with SSE
 - **Anthropic SDK**: Official Claude API client
 - **Streaming**: Real-time Server-Sent Events
 
@@ -225,7 +294,7 @@ This app is designed to be extended with:
 Following 2025 modern web development standards:
 
 1. **React Server Components** for optimal performance
-2. **Streaming** for better UX
+2. **Server-Sent Events** for real-time streaming
 3. **TypeScript strict mode** for type safety
 4. **Feature-based architecture** for scalability
 5. **Atomic design** with shadcn/ui
@@ -234,6 +303,38 @@ Following 2025 modern web development standards:
 8. **Error handling** throughout the app
 9. **Loading states** for better feedback
 10. **Clean code** principles
+
+## 🔬 Advanced Features
+
+### Streaming Implementation
+
+The app uses a custom streaming implementation:
+
+```typescript
+// Server-side streaming with SSE
+for await (const chunk of claudeAPI.streamMessage(...)) {
+  controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+}
+```
+
+### Extended Thinking Integration
+
+```typescript
+// Configure thinking budget
+thinking: {
+  type: 'enabled',
+  budget_tokens: thinkingBudget, // 1024 - 32768+
+}
+```
+
+### Event Handling
+
+Full support for all SSE event types:
+- Content deltas
+- Thinking deltas
+- Signature deltas
+- Error events
+- Ping events
 
 ## 📝 License
 
@@ -252,7 +353,16 @@ For issues or questions, please open an issue on GitHub.
 - [Anthropic](https://www.anthropic.com/) for the Claude API
 - [Vercel](https://vercel.com/) for Next.js
 - [shadcn](https://ui.shadcn.com/) for the beautiful UI components
+- Claude API documentation for streaming and extended thinking specifications
+
+## 📚 Resources
+
+- [Claude API Documentation](https://docs.anthropic.com/)
+- [Extended Thinking Guide](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking)
+- [Streaming Messages](https://docs.anthropic.com/en/docs/build-with-claude/streaming)
+- [Prompt Caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching)
+- [Next.js Documentation](https://nextjs.org/docs)
 
 ---
 
-Built with ❤️ using Claude AI and modern web technologies.
+Built with ❤️ using Claude AI and modern web technologies. Implements official streaming and extended thinking patterns from Anthropic's documentation.

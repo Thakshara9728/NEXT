@@ -3,8 +3,8 @@ import { ChatSettings, Message } from '@/types';
 
 // Model mapping to actual API model names
 const MODEL_MAP = {
-  'claude-sonnet-3-7': 'claude-3-5-sonnet-20241022', // Latest Sonnet 3.5
-  'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5
+  'claude-sonnet-3-7': 'claude-3-7-sonnet-20250219', // Claude Sonnet 3.7
+  'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Claude Sonnet 4.5
 } as const;
 
 interface ClaudeAPIOptions {
@@ -23,14 +23,19 @@ export class ClaudeAPI {
   /**
    * Stream a response from Claude with support for:
    * - Prompt caching
-   * - Extended thinking
+   * - Extended thinking with signature handling
    * - Web search context
+   * - Proper event handling for all streaming types
    */
   async *streamMessage(
     messages: Message[],
     settings: ChatSettings,
     webSearchResults?: string
-  ): AsyncGenerator<{ type: 'content' | 'thinking' | 'done'; content?: string }> {
+  ): AsyncGenerator<{
+    type: 'content' | 'thinking' | 'signature' | 'done' | 'error';
+    content?: string;
+    error?: string;
+  }> {
     try {
       const modelId = MODEL_MAP[settings.model];
 
@@ -86,11 +91,20 @@ When generating YouTube scripts:
         stream: true,
       };
 
-      // Add extended thinking if enabled (only for supported models)
+      // Add extended thinking if enabled
       if (settings.extendedThinking) {
+        // Calculate thinking budget (defaults to 25% of max_tokens, min 1024, max configurable)
+        const thinkingBudget = Math.max(
+          1024,
+          Math.min(
+            settings.thinkingBudget || Math.floor(settings.maxTokens * 0.25),
+            settings.maxTokens - 1000 // Reserve some tokens for actual output
+          )
+        );
+
         requestParams.thinking = {
           type: 'enabled',
-          budget_tokens: 2000,
+          budget_tokens: thinkingBudget,
         };
       }
 
@@ -98,9 +112,17 @@ When generating YouTube scripts:
 
       let currentThinking = '';
       let currentContent = '';
+      let currentSignature = '';
 
       for await (const event of stream) {
-        if (event.type === 'content_block_start') {
+        // Handle different event types
+        if (event.type === 'message_start') {
+          // New message starting
+          currentThinking = '';
+          currentContent = '';
+          currentSignature = '';
+        } else if (event.type === 'content_block_start') {
+          // New content block starting
           const block = event.content_block;
           if (block.type === 'thinking') {
             currentThinking = '';
@@ -108,21 +130,47 @@ When generating YouTube scripts:
             currentContent = '';
           }
         } else if (event.type === 'content_block_delta') {
+          // Content delta (incremental updates)
           const delta = event.delta;
+
           if (delta.type === 'thinking_delta') {
             currentThinking += delta.thinking;
             yield { type: 'thinking', content: currentThinking };
           } else if (delta.type === 'text_delta') {
             currentContent += delta.text;
             yield { type: 'content', content: currentContent };
+          } else if (delta.type === 'signature_delta') {
+            // Signature for thinking verification (appears at end of thinking block)
+            currentSignature += delta.signature;
+            yield { type: 'signature', content: currentSignature };
           }
+        } else if (event.type === 'content_block_stop') {
+          // Content block completed
+          // Nothing specific to do here, but could be used for logging
+        } else if (event.type === 'message_delta') {
+          // Message-level updates (usage, stop_reason, etc.)
+          // Could extract usage information here if needed
         } else if (event.type === 'message_stop') {
+          // Stream complete
           yield { type: 'done' };
+        } else if (event.type === 'ping') {
+          // Ping events to keep connection alive - ignore
+          continue;
+        } else if (event.type === 'error') {
+          // Error event
+          const errorEvent = event as any;
+          yield {
+            type: 'error',
+            error: errorEvent.error?.message || 'Unknown streaming error'
+          };
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Claude API Error:', error);
-      throw error;
+      yield {
+        type: 'error',
+        error: error.message || 'An error occurred during streaming'
+      };
     }
   }
 

@@ -16,6 +16,7 @@ export interface ChatSettings {
   usePromptCaching: boolean;
   maxTokens: number;
   temperature: number;
+  thinkingBudget?: number; // Optional thinking budget tokens (defaults to 25% of maxTokens)
 }
 
 export interface WebSearchResult {
@@ -25,7 +26,7 @@ export interface WebSearchResult {
 }
 
 export interface StreamChunk {
-  type: 'content' | 'thinking' | 'done' | 'error';
+  type: 'content' | 'thinking' | 'signature' | 'done' | 'error';
   content?: string;
   error?: string;
 }

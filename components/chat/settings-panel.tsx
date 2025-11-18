@@ -74,6 +74,39 @@ export function SettingsPanel() {
           />
         </div>
 
+        {/* Thinking Budget (only shown when extended thinking is enabled) */}
+        {settings.extendedThinking && (
+          <div className="space-y-2 pl-6 border-l-2 border-primary/20">
+            <Label htmlFor="thinking-budget">
+              Thinking Budget: {settings.thinkingBudget || 'Auto'} tokens
+            </Label>
+            <Select
+              value={settings.thinkingBudget?.toString() || 'auto'}
+              onValueChange={(value) =>
+                updateSettings({
+                  thinkingBudget: value === 'auto' ? undefined : parseInt(value)
+                })
+              }
+            >
+              <SelectTrigger id="thinking-budget">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto (25% of max tokens)</SelectItem>
+                <SelectItem value="1024">1,024 (Minimum)</SelectItem>
+                <SelectItem value="2048">2,048</SelectItem>
+                <SelectItem value="4096">4,096</SelectItem>
+                <SelectItem value="8192">8,192</SelectItem>
+                <SelectItem value="16384">16,384</SelectItem>
+                <SelectItem value="32768">32,768</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Higher budgets enable more thorough reasoning
+            </p>
+          </div>
+        )}
+
         {/* Web Search */}
         <div className="flex items-center justify-between space-x-2">
           <div className="flex items-center gap-2 flex-1">
